@@ -1599,11 +1599,6 @@ static Value* PerformBlockImageUpdate(const char* name, State* state,
     LOG(INFO) << "max alloc needed was " << params.buffer.size();
 
     const char* partition = strrchr(blockdev_filename->data.c_str(), '/');
-    if (partition != nullptr && *(partition + 1) != 0) {
-      fprintf(cmd_pipe, "log bytes_written_%s: %zu\n", partition + 1, params.written * BLOCKSIZE);
-      fprintf(cmd_pipe, "log bytes_stashed_%s: %zu\n", partition + 1, params.stashed * BLOCKSIZE);
-      fflush(cmd_pipe);
-    }
     // Delete stash only after successfully completing the update, as it may contain blocks needed
     // to complete the update later.
     DeleteStash(params.stashbase);
