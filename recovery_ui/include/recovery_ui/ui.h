@@ -154,6 +154,7 @@ class RecoveryUI {
   // KeyError::INTERRUPTED on a key interrupt.
   virtual int WaitKey();
 
+  virtual void CancelWaitKey();
   // Wakes up the UI if it is waiting on key input, causing WaitKey to return KeyError::INTERRUPTED.
   virtual void InterruptKey();
 
