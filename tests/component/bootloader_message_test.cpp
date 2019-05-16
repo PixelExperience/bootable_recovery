@@ -113,4 +113,3 @@ TEST(BootloaderMessageTest, update_bootloader_message_recovery_options_long) {
   ASSERT_EQ(std::string(sizeof(boot.reserved), '\0'),
             std::string(boot.reserved, sizeof(boot.reserved)));
 }
-

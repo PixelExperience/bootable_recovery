@@ -14,8 +14,8 @@
 // limitations under the License.
 //
 
-cc_library_static {
-    name: "libbootloader_message",
+cc_defaults {
+    name: "libbootloader_message_defaults",
     srcs: ["bootloader_message.cpp"],
     cflags: [
         "-Wall",
@@ -34,4 +34,19 @@ cc_library_static {
             },
         },
     },
+}
+
+cc_library_static {
+    name: "libbootloader_message",
+    defaults: [
+        "libbootloader_message_defaults",
+    ],
+}
+
+cc_library_static {
+    name: "libbootloader_message_vendor",
+    defaults: [
+        "libbootloader_message_defaults",
+    ],
+    vendor: true,
 }
