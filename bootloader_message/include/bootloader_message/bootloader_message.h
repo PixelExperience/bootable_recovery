@@ -218,6 +218,14 @@ bool read_wipe_package(std::string* package_data, size_t size, std::string* err)
 // Write the wipe package into BCB (to offset WIPE_PACKAGE_OFFSET_IN_MISC).
 bool write_wipe_package(const std::string& package_data, std::string* err);
 
+// Reads data from the vendor space in /misc partition, with the given offset and size. Note that
+// offset is in relative to the start of vendor space.
+bool ReadMiscPartitionVendorSpace(void* data, size_t size, size_t offset, std::string* err);
+
+// Writes the given data to the vendor space in /misc partition, at the given offset. Note that
+// offset is in relative to the start of the vendor space.
+bool WriteMiscPartitionVendorSpace(const void* data, size_t size, size_t offset, std::string* err);
+
 #else
 
 #include <stdbool.h>
