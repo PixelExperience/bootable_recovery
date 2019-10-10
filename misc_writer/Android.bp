@@ -15,8 +15,7 @@
 //
 
 cc_binary {
-    name: "misc_writer",
-    vendor: true,
+    name: "misc_writer_system",
 
     srcs: [
         "misc_writer.cpp",
@@ -36,29 +35,5 @@ cc_binary {
     static_libs: [
         "libbootloader_message_vendor",
         "libfs_mgr",
-    ],
-}
-
-cc_binary {
-    name: "misc_writer_system",
-
-    srcs: [
-        "misc_writer.cpp",
-    ],
-
-    cpp_std: "experimental",
-
-    cflags: [
-        "-Wall",
-        "-Werror",
-    ],
-
-    shared_libs: [
-        "libbase",
-    ],
-
-    static_libs: [
-        "libbootloader_message",
-        "libfstab",
     ],
 }
