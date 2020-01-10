@@ -399,6 +399,71 @@ Value* MountFn(const char* name, State* state, const std::vector<std::unique_ptr
   return StringValue(mount_point);
 }
 
+// mount_ro(fs_type, partition_type, location, mount_point)
+// mount_ro(fs_type, partition_type, location, mount_point, mount_options)
+
+//    fs_type="ext4"   partition_type="EMMC"    location=device
+Value* MountRoFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
+  if (argv.size() != 4 && argv.size() != 5) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() expects 4-5 args, got %zu", name,
+                      argv.size());
+  }
+
+  std::vector<std::string> args;
+  if (!ReadArgs(state, argv, &args)) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() Failed to parse the argument(s)", name);
+  }
+  const std::string& fs_type = args[0];
+  const std::string& partition_type = args[1];
+  const std::string& location = args[2];
+  const std::string& mount_point = args[3];
+  std::string mount_options;
+
+  if (argv.size() == 5) {
+    mount_options = args[4];
+  }
+
+  if (fs_type.empty()) {
+    return ErrorAbort(state, kArgsParsingFailure, "fs_type argument to %s() can't be empty", name);
+  }
+  if (partition_type.empty()) {
+    return ErrorAbort(state, kArgsParsingFailure, "partition_type argument to %s() can't be empty",
+                      name);
+  }
+  if (location.empty()) {
+    return ErrorAbort(state, kArgsParsingFailure, "location argument to %s() can't be empty", name);
+  }
+  if (mount_point.empty()) {
+    return ErrorAbort(state, kArgsParsingFailure, "mount_point argument to %s() can't be empty",
+                      name);
+  }
+
+  {
+    char* secontext = nullptr;
+
+    if (sehandle) {
+      selabel_lookup(sehandle, &secontext, mount_point.c_str(), 0755);
+      setfscreatecon(secontext);
+    }
+
+    mkdir(mount_point.c_str(), 0755);
+
+    if (secontext) {
+      freecon(secontext);
+      setfscreatecon(nullptr);
+    }
+  }
+
+  if (mount(location.c_str(), mount_point.c_str(), fs_type.c_str(),
+            MS_NOATIME | MS_NODEV | MS_NODIRATIME | MS_RDONLY | MS_REMOUNT, mount_options.c_str()) < 0) {
+    uiPrintf(state, "%s: Failed to mount %s at %s: %s", name, location.c_str(), mount_point.c_str(),
+             strerror(errno));
+    return StringValue("");
+  }
+
+  return StringValue(mount_point);
+}
+
 // is_mounted(mount_point)
 Value* IsMountedFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
   if (argv.size() != 1) {
@@ -1316,6 +1381,7 @@ Value* Tune2FsFn(const char* name, State* state, const std::vector<std::unique_p
 
 void RegisterInstallFunctions() {
   RegisterFunction("mount", MountFn);
+  RegisterFunction("mount_ro", MountRoFn);
   RegisterFunction("is_mounted", IsMountedFn);
   RegisterFunction("unmount", UnmountFn);
   RegisterFunction("format", FormatFn);
