@@ -399,6 +399,27 @@ Value* MountFn(const char* name, State* state, const std::vector<std::unique_ptr
   return StringValue(mount_point);
 }
 
+// mkdir_recursive(path)
+Value* MkDirRecursiveFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
+  if (argv.size() != 1) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() expects 1 arg, got %zu", name, argv.size());
+  }
+
+  std::vector<std::string> args;
+  if (!ReadArgs(state, argv, &args)) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() Failed to parse the argument(s)", name);
+  }
+  const std::string& path = args[0];
+  if (path.empty()) {
+    return ErrorAbort(state, kArgsParsingFailure,
+                      "path argument to mkdir_recursive() can't be empty");
+  }
+
+  make_parents(path);
+
+  return StringValue("t");
+}
+
 // is_mounted(mount_point)
 Value* IsMountedFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
   if (argv.size() != 1) {
@@ -1393,6 +1414,7 @@ void RegisterInstallFunctions() {
 
   RegisterFunction("wipe_block_device", WipeBlockDeviceFn);
 
+  RegisterFunction("mkdir_recursive", MkDirRecursiveFn);
   RegisterFunction("read_file", ReadFileFn);
   RegisterFunction("sha1_check", Sha1CheckFn);
   RegisterFunction("rename", RenameFn);
