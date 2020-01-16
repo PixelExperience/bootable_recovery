@@ -941,7 +941,7 @@ static Value* SetMetadataFn(const char* name, State* state,
 
   struct stat sb;
   if (lstat(args[0].c_str(), &sb) == -1) {
-    return StringValue("");
+    return StringValue("t");
     /*return ErrorAbort(state, kSetMetadataFailure, "%s: Error on lstat of \"%s\": %s", name,
                       args[0].c_str(), strerror(errno));*/
   }
