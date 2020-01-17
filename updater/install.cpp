@@ -441,12 +441,12 @@ Value* UnmountFn(const char* name, State* state, const std::vector<std::unique_p
   scan_mounted_volumes();
   MountedVolume* vol = find_mounted_volume_by_mount_point(mount_point.c_str());
   if (vol == nullptr) {
-    //uiPrintf(state, "Failed to unmount %s: No such volume", mount_point.c_str());
+    uiPrintf(state, "Failed to unmount %s: No such volume", mount_point.c_str());
     return nullptr;
   } else {
     int ret = unmount_mounted_volume(vol);
     if (ret != 0) {
-      //uiPrintf(state, "Failed to unmount %s: %s", mount_point.c_str(), strerror(errno));
+      uiPrintf(state, "Failed to unmount %s: %s", mount_point.c_str(), strerror(errno));
     }
   }
 
