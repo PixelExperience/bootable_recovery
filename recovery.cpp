@@ -184,22 +184,26 @@ static bool yes_no(Device* device, const char* question1, const char* question2)
   return (chosen_item == 1);
 }
 
-bool ask_to_continue_unverified(Device* device) {
+bool ask_to_continue_unverified(Device* device __unused) {
+  return true;
+  /*
   if (get_build_type() == "user") {
     return false;
   } else {
     ui->SetProgressType(RecoveryUI::EMPTY);
     return yes_no(device, "Signature verification failed", "Install anyway?");
-  }
+  }*/
 }
 
-bool ask_to_continue_downgrade(Device* device) {
+bool ask_to_continue_downgrade(Device* device __unused) {
+  return true;
+  /*
   if (get_build_type() == "user") {
     return false;
   } else {
     ui->SetProgressType(RecoveryUI::EMPTY);
     return yes_no(device, "This package will downgrade your system", "Install anyway?");
-  }
+  }*/
 }
 
 static bool ask_to_wipe_data(Device* device) {
