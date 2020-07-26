@@ -939,17 +939,8 @@ Device::BuiltinAction start_recovery(Device* device, const std::vector<std::stri
     ui->SetStage(st_cur, st_max);
   }
 
-  // Extract the YYYYMMDD date from the full version string. Assume
-  // the first instance of "-[0-9]{8}-" (if any) has the desired date.
-  std::string ver = android::base::GetProperty("ro.lineage.version", "");
-  std::smatch ver_date_match;
-  std::regex_search(ver, ver_date_match, std::regex("-(\\d{8})-"));
-  std::string ver_date = ver_date_match.str(1);  // Empty if no match.
+  std::vector<std::string> title_lines = {};
 
-  std::vector<std::string> title_lines = {
-    "Version " + android::base::GetProperty("ro.lineage.build.version", "(unknown)") +
-        " (" + ver_date + ")",
-  };
   if (android::base::GetBoolProperty("ro.build.ab_update", false)) {
     std::string slot = android::base::GetProperty("ro.boot.slot_suffix", "");
     if (android::base::StartsWith(slot, "_")) slot.erase(0, 1);
