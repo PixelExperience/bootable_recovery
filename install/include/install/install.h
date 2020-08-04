@@ -37,7 +37,6 @@ enum InstallResult {
   INSTALL_RETRY,
   INSTALL_KEY_INTERRUPTED,
   INSTALL_REBOOT,
-  INSTALL_UNVERIFIED,
 };
 
 enum class OtaType {
@@ -50,7 +49,7 @@ enum class OtaType {
 // successful installation if |should_wipe_cache| is true or an updater command asks to wipe the
 // cache.
 int install_package(const std::string& package, bool should_wipe_cache, bool needs_mount,
-                    int retry_count, bool verify, RecoveryUI* ui);
+                    int retry_count, RecoveryUI* ui);
 
 // Verifies the package by ota keys. Returns true if the package is verified successfully,
 // otherwise returns false.
@@ -75,6 +74,3 @@ int CheckPackageMetadata(const std::map<std::string, std::string>& metadata, Ota
 // Ensures the path to the update package is mounted. Also set the |should_use_fuse| to true if the
 // package stays on a removable media.
 bool SetupPackageMount(const std::string& package_path, bool* should_use_fuse);
-
-// Defined in recovery.cpp, just declare it and it will eventually link fine.
-bool ask_to_continue_unverified(Device* device);

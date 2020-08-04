@@ -185,12 +185,7 @@ int ApplyFromStorage(Device* device, VolumeInfo& vi, RecoveryUI* ui) {
       }
     }
 
-    result = install_package(FUSE_SIDELOAD_HOST_PATHNAME, false, false, 0 /*retry_count*/,
-                             true /* verify */, ui);
-    if (result == INSTALL_UNVERIFIED && ask_to_continue_unverified(device)) {
-      result = install_package(FUSE_SIDELOAD_HOST_PATHNAME, false, false, 0 /*retry_count*/,
-                               false /* verify */, ui);
-    }
+    result = install_package(FUSE_SIDELOAD_HOST_PATHNAME, false, false, 0 /*retry_count*/, ui);
     break;
   }
 

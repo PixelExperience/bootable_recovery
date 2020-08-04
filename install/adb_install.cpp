@@ -114,12 +114,7 @@ static auto AdbInstallPackageHandler(Device* device, int* result) {
     }
     ui->CancelWaitKey();
 
-    *result = install_package(FUSE_SIDELOAD_HOST_PATHNAME, false, false, 0, true /* verify */, ui);
-    if (*result == INSTALL_UNVERIFIED &&
-        ui->IsTextVisible() && ask_to_continue_unverified(device)) {
-      *result =
-          install_package(FUSE_SIDELOAD_HOST_PATHNAME, false, false, 0, false /* verify */, ui);
-    }
+    *result = install_package(FUSE_SIDELOAD_HOST_PATHNAME, false, false, 0, ui);
     break;
   }
 
