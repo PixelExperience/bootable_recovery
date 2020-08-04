@@ -186,16 +186,11 @@ int ApplyFromStorage(Device* device, VolumeInfo& vi, RecoveryUI* ui) {
     }
 
     result = install_package(FUSE_SIDELOAD_HOST_PATHNAME, false, false, 0 /*retry_count*/,
-                             true /* verify */, false /* allow_ab_downgrade */, ui);
+                             true /* verify */, ui);
     if (result == INSTALL_UNVERIFIED && ask_to_continue_unverified(device)) {
       result = install_package(FUSE_SIDELOAD_HOST_PATHNAME, false, false, 0 /*retry_count*/,
-                               false /* verify */, false /* allow_ab_downgrade */, ui);
+                               false /* verify */, ui);
     }
-    if (result == INSTALL_DOWNGRADE && ask_to_continue_downgrade(device)) {
-      result = install_package(FUSE_SIDELOAD_HOST_PATHNAME, false, false, 0 /*retry_count*/,
-                               false /* verify */, true /* allow_ab_downgrade */, ui);
-    }
-
     break;
   }
 
