@@ -157,7 +157,7 @@ static int CheckAbSpecificMetadata(const std::map<std::string, std::string>& met
     return INSTALL_ERROR;
   }
 
-  // Check for downgrade version.
+/*  // Check for downgrade version.
   int64_t build_timestamp =
       android::base::GetIntProperty("ro.build.date.utc", std::numeric_limits<int64_t>::max());
   int64_t pkg_post_timestamp = 0;
@@ -178,7 +178,7 @@ static int CheckAbSpecificMetadata(const std::map<std::string, std::string>& met
       LOG(ERROR) << "Downgrade package must have a pre-build version set, not allowed.";
       return INSTALL_ERROR;
     }
-  }
+  }*/
 
   return 0;
 }
@@ -593,10 +593,10 @@ static int really_install_package(const std::string& path, bool* wipe_cache, boo
   }
 
   // Verify package.
-  if (!verify_package(package.get(), ui)) {
+  /*if (!verify_package(package.get(), ui)) {
     log_buffer->push_back(android::base::StringPrintf("error: %d", kZipVerificationFailure));
     return INSTALL_CORRUPT;
-  }
+  }*/
 
   // Try to open the package.
   ZipArchiveHandle zip = package->GetZipArchiveHandle();
