@@ -952,9 +952,8 @@ static Value* SetMetadataFn(const char* name, State* state,
 
   struct stat sb;
   if (lstat(args[0].c_str(), &sb) == -1) {
-    return StringValue("t");
-    /*return ErrorAbort(state, kSetMetadataFailure, "%s: Error on lstat of \"%s\": %s", name,
-                      args[0].c_str(), strerror(errno));*/
+    return ErrorAbort(state, kSetMetadataFailure, "%s: Error on lstat of \"%s\": %s", name,
+                      args[0].c_str(), strerror(errno));
   }
 
   struct perm_parsed_args parsed = ParsePermArgs(state, args);
