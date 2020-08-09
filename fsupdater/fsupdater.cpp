@@ -311,7 +311,7 @@ static Value* CreateFn(const char* name, State* state, const std::vector<std::un
   android::base::unique_fd fd(TEMP_FAILURE_RETRY(
       open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR)));
   if (fd < 0) {
-    return ErrorAbort(state, kFileOpenFailure, "%s() No %s in package", name, path.c_str());
+    return ErrorAbort(state, kFileOpenFailure, "%s() Failed to open %s: %s", name, path.c_str(), strerror(errno));
   }
 
   ExtractEntryToFile(za, &entry, fd);
@@ -439,12 +439,9 @@ Value* PatchFn(const char* name, State* state,
       sprintf(&hexdigest[2 * n], "%02x", digest[n]);
   }
 
-  uiPrintf(state, "File %s size %u digest %s", filename.c_str(), old_data.size(), hexdigest);
-
   if (memcmp(old_digest.c_str(), hexdigest, 2 * SHA_DIGEST_LENGTH) != 0) {
-    uiPrintf(state, "digest mismatch, not patching %s: expected %s, got %s",
+    return ErrorAbort(state, kFwriteFailure, "digest mismatch, not patching %s: expected %s, got %s",
              filename.c_str(), old_digest.c_str(), hexdigest);
-    return StringValue("");
   }
 
   std::string new_data;
@@ -455,8 +452,7 @@ Value* PatchFn(const char* name, State* state,
 
   ret = ApplyBSDiffPatch(old_data.data(), old_data.size(), patch, 0, sink);
   if (ret != 0) {
-    //XXX: ErrorAbort
-    uiPrintf(state, "Failed to patch %s: ApplyBSDiffPatch returned %d\n", filename.c_str(), ret);
+    return ErrorAbort(state, kFwriteFailure, "Failed to patch %s: ApplyBSDiffPatch returned %d\n", filename.c_str(), ret);
   }
 
   fd = open(filename.c_str(), O_WRONLY);
@@ -565,9 +561,100 @@ static Value* ChmetaFn(const char* name, State* state, const std::vector<std::un
   return StringValue("");
 }
 
+// try_file_getprop(file, key)
+//
+//   interprets 'file' as a getprop-style file (key=value pairs, one
+//   per line. # comment lines, blank lines, lines without '=' ignored),
+//   and returns the value for 'key' (or "" if it isn't defined).
+//   return false when failed
+Value* TryFileGetPropFn(const char* name, State* state,
+                     const std::vector<std::unique_ptr<Expr>>& argv) {
+  if (argv.size() != 2) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() expects 2 args, got %zu", name,
+                      argv.size());
+  }
+
+  std::vector<std::string> args;
+  if (!ReadArgs(state, argv, &args)) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() Failed to parse the argument(s)", name);
+  }
+  const std::string& filename = args[0];
+  const std::string& key = args[1];
+
+  std::string buffer;
+  if (!android::base::ReadFileToString(filename, &buffer)) {
+    return StringValue("");
+  }
+
+  std::vector<std::string> lines = android::base::Split(buffer, "\n");
+  for (size_t i = 0; i < lines.size(); i++) {
+    std::string line = android::base::Trim(lines[i]);
+
+    // comment or blank line: skip to next line
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+    size_t equal_pos = line.find('=');
+    if (equal_pos == std::string::npos) {
+      continue;
+    }
+
+    // trim whitespace between key and '='
+    std::string str = android::base::Trim(line.substr(0, equal_pos));
+
+    // not the key we're looking for
+    if (key != str) continue;
+
+    return StringValue(android::base::Trim(line.substr(equal_pos + 1)));
+  }
+
+  return StringValue("");
+}
+
+// sha1_check(data)
+//    to return the sha1 of the data (given in the format returned by
+//    read_file).
+//
+// sha1_check(data, sha1_hex, [sha1_hex, ...])
+//    returns the sha1 of the file if it matches any of the hex
+//    strings passed, or "" if it does not equal any of them.
+//
+Value* Sha1CheckFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
+  if (argv.size() < 1) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() expects at least 1 arg", name);
+  }
+
+  std::vector<std::unique_ptr<Value>> args;
+  if (!ReadValueArgs(state, argv, &args)) {
+    return nullptr;
+  }
+
+  uint8_t digest[SHA_DIGEST_LENGTH];
+  SHA1(reinterpret_cast<const uint8_t*>(args[0]->data.c_str()), args[0]->data.size(), digest);
+
+  if (argv.size() == 1) {
+    return StringValue(print_sha1(digest));
+  }
+
+  for (size_t i = 1; i < argv.size(); ++i) {
+    uint8_t arg_digest[SHA_DIGEST_LENGTH];
+    if (args[i]->type != Value::Type::STRING) {
+      LOG(ERROR) << name << "(): arg " << i << " is not a string; skipping";
+    } else if (ParseSha1(args[i]->data.c_str(), arg_digest) != 0) {
+      // Warn about bad args and skip them.
+      LOG(ERROR) << name << "(): error parsing \"" << args[i]->data << "\" as sha-1; skipping";
+    } else if (memcmp(digest, arg_digest, SHA_DIGEST_LENGTH) == 0) {
+      // Found a match.
+      return args[i].release();
+    }
+  }
+
+  // Didn't match any of the hex strings; return false.
+  return StringValue("");
+}
+
 /*
  * These are the edify functions for file based incremental updates.
- *
  */
 void RegisterFsUpdaterFunctions() {
   RegisterFunction("mkdir", MkdirFn);
@@ -578,4 +665,6 @@ void RegisterFsUpdaterFunctions() {
   RegisterFunction("unlink", UnlinkFn);
   RegisterFunction("chown", ChownFn);
   RegisterFunction("chmeta", ChmetaFn);
+  RegisterFunction("try_file_getprop", TryFileGetPropFn);
+  RegisterFunction("sha1_check", Sha1CheckFn);
 }
