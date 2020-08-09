@@ -1326,48 +1326,6 @@ Value* Tune2FsFn(const char* name, State* state, const std::vector<std::unique_p
   return StringValue("t");
 }
 
-// sha1_check(data)
-//    to return the sha1 of the data (given in the format returned by
-//    read_file).
-//
-// sha1_check(data, sha1_hex, [sha1_hex, ...])
-//    returns the sha1 of the file if it matches any of the hex
-//    strings passed, or "" if it does not equal any of them.
-//
-Value* Sha1CheckFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
-  if (argv.size() < 1) {
-    return ErrorAbort(state, kArgsParsingFailure, "%s() expects at least 1 arg", name);
-  }
-
-  std::vector<std::unique_ptr<Value>> args;
-  if (!ReadValueArgs(state, argv, &args)) {
-    return nullptr;
-  }
-
-  uint8_t digest[SHA_DIGEST_LENGTH];
-  SHA1(reinterpret_cast<const uint8_t*>(args[0]->data.c_str()), args[0]->data.size(), digest);
-
-  if (argv.size() == 1) {
-    return StringValue(print_sha1(digest));
-  }
-
-  for (size_t i = 1; i < argv.size(); ++i) {
-    uint8_t arg_digest[SHA_DIGEST_LENGTH];
-    if (args[i]->type != Value::Type::STRING) {
-      LOG(ERROR) << name << "(): arg " << i << " is not a string; skipping";
-    } else if (ParseSha1(args[i]->data.c_str(), arg_digest) != 0) {
-      // Warn about bad args and skip them.
-      LOG(ERROR) << name << "(): error parsing \"" << args[i]->data << "\" as sha-1; skipping";
-    } else if (memcmp(digest, arg_digest, SHA_DIGEST_LENGTH) == 0) {
-      // Found a match.
-      return args[i].release();
-    }
-  }
-
-  // Didn't match any of the hex strings; return false.
-  return StringValue("");
-}
-
 void RegisterInstallFunctions() {
   RegisterFunction("mount", MountFn);
   RegisterFunction("is_mounted", IsMountedFn);
@@ -1405,7 +1363,6 @@ void RegisterInstallFunctions() {
   RegisterFunction("wipe_block_device", WipeBlockDeviceFn);
 
   RegisterFunction("read_file", ReadFileFn);
-  RegisterFunction("sha1_check", Sha1CheckFn);
   RegisterFunction("rename", RenameFn);
   RegisterFunction("write_value", WriteValueFn);
 
