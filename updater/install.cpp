@@ -1326,6 +1326,390 @@ Value* Tune2FsFn(const char* name, State* state, const std::vector<std::unique_p
   return StringValue("t");
 }
 
+// mkdir(path)
+//   Create a directory.
+//   Returns nothing.
+static Value* MkdirFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
+  if (argv.size() != 1) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() expects 1 argument, got %zu",
+                      name, argv.size());
+  }
+
+  std::vector<std::string> args;
+  if (!ReadArgs(state, argv, &args)) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() Failed to parse the argument(s)", name);
+  }
+
+  const auto path = args[0];
+
+  if (mkdir(path.c_str(), 0700) != 0) {
+    if (errno != EEXIST) {
+      return ErrorAbort(state, kFileOpenFailure, "%s: Error on mkdir of \"%s\": %s", name,
+                        path.c_str(), strerror(errno));
+    }
+  }
+
+  return StringValue("");
+}
+
+// rmdir(path)
+//   Delete a directory.
+//   Returns nothing.
+static Value* RmdirFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
+  if (argv.size() != 1) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() expects 1 argument, got %zu",
+                      name, argv.size());
+  }
+
+  std::vector<std::string> args;
+  if (!ReadArgs(state, argv, &args)) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() Failed to parse the argument(s)", name);
+  }
+
+  const auto path = args[0];
+
+  if (rmdir(path.c_str()) != 0) {
+    return ErrorAbort(state, kFileOpenFailure, "%s: Error on rmdir of \"%s\": %s", name,
+                      path.c_str(), strerror(errno));
+  }
+
+  return StringValue("");
+}
+
+// create(path, zipfile)
+//   Create a file.
+//   Returns nothing.
+static Value* CreateFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
+  if (argv.size() != 2) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() expects 2 arguments, got %zu",
+                      name, argv.size());
+  }
+
+  std::vector<std::string> args;
+  if (!ReadArgs(state, argv, &args)) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() Failed to parse the argument(s)", name);
+  }
+
+  const auto path = args[0];
+  const auto& zipfile = args[1];
+
+  ZipArchiveHandle za = static_cast<UpdaterInfo*>(state->cookie)->package_zip;
+  ZipString zip_string_path(zipfile.c_str());
+  ZipEntry entry;
+  if (FindEntry(za, zip_string_path, &entry) != 0) {
+    return ErrorAbort(state, kFileOpenFailure, "%s() No %s in package", name, zipfile.c_str());
+  }
+
+  if (lstat(path.c_str(), F_OK) == 0) {
+    unlink(path.c_str());
+  }
+
+  android::base::unique_fd fd(TEMP_FAILURE_RETRY(
+      open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR)));
+  if (fd < 0) {
+    return ErrorAbort(state, kFileOpenFailure, "%s() Failed to open %s: %s", name, path.c_str(), strerror(errno));
+  }
+
+  ExtractEntryToFile(za, &entry, fd);
+
+  struct stat st;
+  if (stat(path.c_str(), &st) != 0) {
+    return ErrorAbort(state, kFileOpenFailure, "%s() Failed to create %s", name, path.c_str());
+  }
+
+  if (fsync(fd) != 0) {
+    return ErrorAbort(state, kFsyncFailure, "%s() No %s in package", name, path.c_str());
+  }
+  close(fd.release());
+
+  return StringValue("");
+}
+
+// symlink_chown(target, path, uid, gid)
+//   Create symbolic link and set owner.
+//   Returns nothing.
+static Value* SymlinkChownFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
+  if (argv.size() != 4) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() expects 4 arguments, got %zu",
+                      name, argv.size());
+  }
+
+  std::vector<std::string> args;
+  if (!ReadArgs(state, argv, &args)) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() Failed to parse the argument(s)", name);
+  }
+
+  const auto& target = args[0];
+  const auto path = args[1];
+
+  int64_t uid, gid;
+  if (sscanf(args[2].c_str(), "%" SCNd64, &uid) != 1 ||
+      sscanf(args[3].c_str(), "%" SCNd64, &gid) != 1) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() Failed to parse the argument(s)", name);
+  }
+
+  struct stat st;
+  if (lstat(path.c_str(), &st) == 0) {
+    return StringValue("");
+  }
+
+  if (symlink(target.c_str(), path.c_str()) != 0) {
+    return ErrorAbort(state, kSymlinkFailure, "%s: Error on symlink of \"%s\": %s", name,
+                      path.c_str(), strerror(errno));
+  }
+  if (lchown(path.c_str(), uid, gid) != 0) {
+    return ErrorAbort(state, kSymlinkFailure, "%s: Error on lchown of \"%s\": %s", name,
+                      path.c_str(), strerror(errno));
+  }
+
+  return StringValue("");
+}
+
+// patch(path, zipfile, old_digest)
+//   Patch a file.
+//   Returns nothing.
+Value* PatchFn(const char* name, State* state,
+                    const std::vector<std::unique_ptr<Expr>>& argv) {
+  if (argv.size() != 3) {
+    return ErrorAbort(state, kArgsParsingFailure,
+                      "%s(): expected 4 args, got %zu", name, argv.size());
+  }
+
+  std::vector<std::string> args;
+  if (!ReadArgs(state, argv, &args)) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() Failed to parse the argument(s)", name);
+  }
+  const std::string  filename = args[0];
+  const std::string& zipfile = args[1];
+  const std::string& old_digest = args[2];
+  if (old_digest.size() != 2 * SHA_DIGEST_LENGTH) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() Bad digest length", name);
+  }
+
+  int ret;
+  int fd;
+
+  ZipArchiveHandle za = static_cast<UpdaterInfo*>(state->cookie)->package_zip;
+  ZipString zip_string_path(zipfile.c_str());
+  ZipEntry entry;
+  if (FindEntry(za, zip_string_path, &entry) != 0) {
+    return ErrorAbort(state, kFileOpenFailure, "%s() No %s in package", name, zipfile.c_str());
+  }
+
+  std::vector<uint8_t> patch_data;
+  patch_data.resize(entry.uncompressed_length);
+  ret = ExtractToMemory(za, &entry, patch_data.data(), patch_data.size());
+  if (ret != 0) {
+    return ErrorAbort(state, kFileOpenFailure, "%s() Failed to read patch %s: %d", name, zipfile.c_str(), ret);
+  }
+  Value patch(Value::Type::BLOB, std::string(patch_data.cbegin(), patch_data.cend()));
+
+  struct stat st;
+  if (stat(filename.c_str(), &st) != 0) {
+    return ErrorAbort(state, kFileOpenFailure, "%s() Failed to stat %s", name, filename.c_str());
+  }
+
+  std::vector<unsigned char> old_data(st.st_size);
+  fd = open(filename.c_str(), O_RDONLY);
+  if (fd == -1) {
+    return ErrorAbort(state, kFileOpenFailure, "%s() Failed to open %s", name, filename.c_str());
+  }
+  ssize_t nread = read(fd, old_data.data(), old_data.size());
+  close(fd);
+  if (nread != (ssize_t)st.st_size) {
+    return ErrorAbort(state, kFreadFailure, "%s() Failed to read %s", name, filename.c_str());
+  }
+
+  SHA_CTX sha_ctx;
+  SHA1_Init(&sha_ctx);
+  SHA1_Update(&sha_ctx, old_data.data(), old_data.size());
+  uint8_t digest[SHA_DIGEST_LENGTH];
+  SHA1_Final(digest, &sha_ctx);
+  char hexdigest[2 * SHA_DIGEST_LENGTH + 1];
+  for (size_t n = 0; n < SHA_DIGEST_LENGTH; ++n) {
+      sprintf(&hexdigest[2 * n], "%02x", digest[n]);
+  }
+
+  if (memcmp(old_digest.c_str(), hexdigest, 2 * SHA_DIGEST_LENGTH) != 0) {
+    return ErrorAbort(state, kFwriteFailure, "digest mismatch, not patching %s: expected %s, got %s",
+             filename.c_str(), old_digest.c_str(), hexdigest);
+  }
+
+  std::string new_data;
+  SinkFn sink = [&new_data](const unsigned char* data, size_t len) {
+    new_data.append(reinterpret_cast<const char*>(data), len);
+    return len;
+  };
+
+  ret = ApplyBSDiffPatch(old_data.data(), old_data.size(), patch, 0, sink);
+  if (ret != 0) {
+    return ErrorAbort(state, kFwriteFailure, "Failed to patch %s: ApplyBSDiffPatch returned %d\n", filename.c_str(), ret);
+  }
+
+  fd = open(filename.c_str(), O_WRONLY);
+  if (fd == -1) {
+    return ErrorAbort(state, kFileOpenFailure, "%s() Failed to open %s: %s", name, filename.c_str(), strerror(errno));
+  }
+  size_t nwritten = write(fd, new_data.c_str(), new_data.size());
+  close(fd);
+  if (nwritten != new_data.size()) {
+    return ErrorAbort(state, kFwriteFailure, "%s() Failed to write %s", name, filename.c_str());
+  }
+
+  return StringValue("");
+}
+
+// unlink(path)
+//   Deletes path.
+//   Returns nothing.
+static Value* UnlinkFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
+  if (argv.size() != 1) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() expects 1 argument, got %zu",
+                      name, argv.size());
+  }
+
+  std::vector<std::string> args;
+  if (!ReadArgs(state, argv, &args)) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() Failed to parse the argument(s)", name);
+  }
+
+  const auto path = args[0];
+
+  struct stat sb;
+  if (lstat(path.c_str(), &sb) != 0) {
+    return StringValue("");
+  }
+
+  if (unlink(path.c_str()) != 0) {
+    return ErrorAbort(state, kFwriteFailure, "%s: Error on unlink of \"%s\": %s", name,
+                      path.c_str(), strerror(errno));
+  }
+
+  return StringValue("");
+}
+
+// chown(path, uid, gid)
+//   Change ownership of existing path.
+//   Returns nothing.
+static Value* ChownFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
+  if (argv.size() != 3) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() expects 3 arguments, got %zu",
+                      name, argv.size());
+  }
+
+  std::vector<std::string> args;
+  if (!ReadArgs(state, argv, &args)) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() Failed to parse the argument(s)", name);
+  }
+
+  const auto path = args[0];
+
+  int64_t uid, gid;
+  if (sscanf(args[2].c_str(), "%" SCNd64, &uid) != 1 ||
+      sscanf(args[3].c_str(), "%" SCNd64, &gid) != 1) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() Failed to parse the argument(s)", name);
+  }
+
+  if (lchown(path.c_str(), uid, gid) != 0) {
+    return ErrorAbort(state, kSymlinkFailure, "%s: Error on lchown of \"%s\": %s", name,
+                      path.c_str(), strerror(errno));
+  }
+
+  return StringValue("");
+}
+
+// try_file_getprop(file, key)
+//
+//   interprets 'file' as a getprop-style file (key=value pairs, one
+//   per line. # comment lines, blank lines, lines without '=' ignored),
+//   and returns the value for 'key' (or "" if it isn't defined).
+//   return false when failed
+Value* TryFileGetPropFn(const char* name, State* state,
+                     const std::vector<std::unique_ptr<Expr>>& argv) {
+  if (argv.size() != 2) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() expects 2 args, got %zu", name,
+                      argv.size());
+  }
+
+  std::vector<std::string> args;
+  if (!ReadArgs(state, argv, &args)) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() Failed to parse the argument(s)", name);
+  }
+  const std::string& filename = args[0];
+  const std::string& key = args[1];
+
+  std::string buffer;
+  if (!android::base::ReadFileToString(filename, &buffer)) {
+    return StringValue("");
+  }
+
+  std::vector<std::string> lines = android::base::Split(buffer, "\n");
+  for (size_t i = 0; i < lines.size(); i++) {
+    std::string line = android::base::Trim(lines[i]);
+
+    // comment or blank line: skip to next line
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+    size_t equal_pos = line.find('=');
+    if (equal_pos == std::string::npos) {
+      continue;
+    }
+
+    // trim whitespace between key and '='
+    std::string str = android::base::Trim(line.substr(0, equal_pos));
+
+    // not the key we're looking for
+    if (key != str) continue;
+
+    return StringValue(android::base::Trim(line.substr(equal_pos + 1)));
+  }
+
+  return StringValue("");
+}
+
+// sha1_check(data)
+//    to return the sha1 of the data (given in the format returned by
+//    read_file).
+//
+// sha1_check(data, sha1_hex, [sha1_hex, ...])
+//    returns the sha1 of the file if it matches any of the hex
+//    strings passed, or "" if it does not equal any of them.
+//
+Value* Sha1CheckFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
+  if (argv.size() < 1) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() expects at least 1 arg", name);
+  }
+
+  std::vector<std::unique_ptr<Value>> args;
+  if (!ReadValueArgs(state, argv, &args)) {
+    return nullptr;
+  }
+
+  uint8_t digest[SHA_DIGEST_LENGTH];
+  SHA1(reinterpret_cast<const uint8_t*>(args[0]->data.c_str()), args[0]->data.size(), digest);
+
+  if (argv.size() == 1) {
+    return StringValue(print_sha1(digest));
+  }
+
+  for (size_t i = 1; i < argv.size(); ++i) {
+    uint8_t arg_digest[SHA_DIGEST_LENGTH];
+    if (args[i]->type != Value::Type::STRING) {
+      LOG(ERROR) << name << "(): arg " << i << " is not a string; skipping";
+    } else if (ParseSha1(args[i]->data.c_str(), arg_digest) != 0) {
+      // Warn about bad args and skip them.
+      LOG(ERROR) << name << "(): error parsing \"" << args[i]->data << "\" as sha-1; skipping";
+    } else if (memcmp(digest, arg_digest, SHA_DIGEST_LENGTH) == 0) {
+      // Found a match.
+      return args[i].release();
+    }
+  }
+
+  // Didn't match any of the hex strings; return false.
+  return StringValue("");
+}
+
 void RegisterInstallFunctions() {
   RegisterFunction("mount", MountFn);
   RegisterFunction("is_mounted", IsMountedFn);
@@ -1378,4 +1762,15 @@ void RegisterInstallFunctions() {
 
   RegisterFunction("enable_reboot", EnableRebootFn);
   RegisterFunction("tune2fs", Tune2FsFn);
+
+  // Used by file based incremental ota
+  RegisterFunction("mkdir", MkdirFn);
+  RegisterFunction("rmdir", RmdirFn);
+  RegisterFunction("create", CreateFn);
+  RegisterFunction("symlink_chown", SymlinkChownFn);
+  RegisterFunction("patch", PatchFn);
+  RegisterFunction("unlink", UnlinkFn);
+  RegisterFunction("chown", ChownFn);
+  RegisterFunction("try_file_getprop", TryFileGetPropFn);
+  RegisterFunction("sha1_check", Sha1CheckFn);
 }
