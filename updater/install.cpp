@@ -1368,7 +1368,7 @@ static Value* RmdirFn(const char* name, State* state, const std::vector<std::uni
 
   const auto path = args[0];
 
-  if (rmdir(path.c_str()) != 0) {
+  if (rmdir(path.c_str()) != 0 && errno != ENOENT) {
     return ErrorAbort(state, kFileOpenFailure, "%s: Error on rmdir of \"%s\": %s", name,
                       path.c_str(), strerror(errno));
   }
@@ -1580,7 +1580,7 @@ static Value* UnlinkFn(const char* name, State* state, const std::vector<std::un
     return StringValue("");
   }
 
-  if (unlink(path.c_str()) != 0) {
+  if (unlink(path.c_str()) != 0 && errno != ENOENT) {
     return ErrorAbort(state, kFwriteFailure, "%s: Error on unlink of \"%s\": %s", name,
                       path.c_str(), strerror(errno));
   }
@@ -1610,7 +1610,7 @@ static Value* ChownFn(const char* name, State* state, const std::vector<std::uni
     return ErrorAbort(state, kArgsParsingFailure, "%s() Failed to parse the argument(s)", name);
   }
 
-  if (lchown(path.c_str(), uid, gid) != 0) {
+  if (lchown(path.c_str(), uid, gid) != 0 && errno != ENOENT) {
     return ErrorAbort(state, kSymlinkFailure, "%s: Error on lchown of \"%s\": %s", name,
                       path.c_str(), strerror(errno));
   }
