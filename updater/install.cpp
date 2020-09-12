@@ -1404,6 +1404,8 @@ static Value* CreateFn(const char* name, State* state, const std::vector<std::un
     unlink(path.c_str());
   }
 
+  make_parents(path);
+
   android::base::unique_fd fd(TEMP_FAILURE_RETRY(
       open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR)));
   if (fd < 0) {
