@@ -164,7 +164,7 @@ static bool CheckWipePackage(Package* wipe_package, RecoveryUI* ui) {
     return false;
   }
 
-  return CheckPackageMetadata(metadata, OtaType::BRICK, ui);
+  return CheckPackageMetadata(metadata, OtaType::BRICK);
 }
 
 bool WipeAbDevice(Device* device, size_t wipe_package_size) {
