@@ -100,7 +100,6 @@ cc_defaults {
         "libcrypto",
         "libcutils",
         "libfs_mgr",
-        "libhardware",
         "liblp",
         "liblog",
         "libprotobuf-cpp-lite",
