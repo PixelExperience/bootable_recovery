@@ -571,7 +571,9 @@ static InstallResult TryUpdateBinary(Package* package, bool* wipe_cache,
         LOG(ERROR) << "invalid \"set_progress\" parameters: " << line;
       }
     } else if (command == "ui_print") {
-      ui->PrintOnScreenOnly("%s\n", args.c_str());
+      // Keep all spaces
+      args = line.substr(space + 1);
+      ui->PrintOnScreenOnly("%s", args.c_str());
       fflush(stdout);
     } else if (command == "wipe_cache") {
       *wipe_cache = true;
