@@ -26,7 +26,8 @@ cc_library {
     recovery_available: true,
 
     defaults: [
-        "recovery_defaults",
+        "uses_legacy_fd_fbdev_defaults",
+        "recovery_defaults"
     ],
 
     export_include_dirs: [
