@@ -338,6 +338,9 @@ class ScreenRecoveryUI : public RecoveryUI, public DrawInterface {
     return MenuCharHeight() + 2 * MenuItemPadding();
   }
 
+  // For Lid switch handle
+  int SetSwCallback(int code, int value) override;
+
  protected:
   static constexpr int kMenuIndent = 24;
 
@@ -519,6 +522,9 @@ class ScreenRecoveryUI : public RecoveryUI, public DrawInterface {
   bool rtl_locale_;
 
   std::mutex updateMutex;
+
+  // Switch the display to active one after graphics is ready
+  bool is_graphics_available;
 
  private:
   void SetLocale(const std::string&);

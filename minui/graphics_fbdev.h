@@ -63,6 +63,7 @@ class MinuiBackendFbdev : public MinuiBackend {
   GRSurface* Flip() override;
   void Blank(bool) override;
   void Blank(bool blank, DrmConnector index) override;
+  bool HasMultipleConnectors() override;
 
  private:
   void SetDisplayedFramebuffer(size_t n);
