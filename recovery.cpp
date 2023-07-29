@@ -175,6 +175,12 @@ static bool yes_no(Device* device, const char* question1, const char* question2)
   return (chosen_item == 1);
 }
 
+bool ask_to_ab_reboot(Device* device) {
+  device->GetUI()->SetProgressType(RecoveryUI::EMPTY);
+  return yes_no(device, "To install additional packages, you need to reboot recovery first",
+                "Do you want to reboot to recovery now?");
+}
+
 static bool ask_to_wipe_data(Device* device) {
   std::vector<std::string> headers{ "Format user data?", "This includes internal storage.", "THIS CANNOT BE UNDONE!" };
   std::vector<std::string> items{ " Cancel", " Format data" };
@@ -192,7 +198,6 @@ static InstallResult apply_update_menu(Device* device, Device::BuiltinAction* re
   std::vector<std::string> items;
 
   const int item_sideload = 0;
-  std::vector<VolumeInfo> volumes;
 
   InstallResult status = INSTALL_NONE;
 
