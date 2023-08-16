@@ -16,6 +16,24 @@
       "message": "Not working properly",
       "revId": "39d70d6b36e22bc7631318e326bd60a07cc42a53",
       "serverId": "8ba0da3e-d57f-4bbe-ac74-faf358ba962a"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "c9ac0282_20faa919",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 3
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000644
+      },
+      "writtenOn": "2023-08-16T03:05:59Z",
+      "side": 1,
+      "message": "This requires some fix patch\nWith https://gerrit.pixelexperience.org/c/bootable_recovery/+/26415/1 \nit works",
+      "parentUuid": "69f3bc1e_b07b4ad8",
+      "revId": "39d70d6b36e22bc7631318e326bd60a07cc42a53",
+      "serverId": "8ba0da3e-d57f-4bbe-ac74-faf358ba962a"
     }
   ]
 }
