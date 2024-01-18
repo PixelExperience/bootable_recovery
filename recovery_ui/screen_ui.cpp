@@ -867,7 +867,7 @@ void ScreenRecoveryUI::draw_menu_and_text_buffer_locked(
 // Draws the battery capacity on the screen. Should only be called with updateMutex locked.
 void ScreenRecoveryUI::draw_battery_capacity_locked() {
   int x;
-  int y = gr_get_height(default_logo.get());
+  int y = gr_get_height(default_logo.get()) - 100;
   int icon_x, icon_y, icon_h, icon_w;
 
   // Battery status
